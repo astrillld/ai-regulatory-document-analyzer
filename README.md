@@ -16,3 +16,4 @@ A Python project for parsing regulatory PDF documents, chunking text, building s
 - FAISS
 - pandas / numpy
 - pytest
+# ai-regulatory-document-analyzer
