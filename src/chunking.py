@@ -1,14 +1,14 @@
 from typing import List
 
+from src.config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 from src.models import PageDocument, TextChunk
-from src.config import DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP
 
 
 def split_text_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
     if chunk_size <= 0:
-        raise ValueError("chunk_size must be > 0")
+        raise ValueError("chunk_size must be greater than 0")
     if overlap < 0:
-        raise ValueError("overlap must be >= 0")
+        raise ValueError("overlap must be non-negative")
     if overlap >= chunk_size:
         raise ValueError("overlap must be smaller than chunk_size")
 
@@ -36,7 +36,11 @@ def chunk_pages(
     all_chunks: List[TextChunk] = []
 
     for page in pages:
-        page_chunks = split_text_into_chunks(page.text, chunk_size, overlap)
+        page_chunks = split_text_into_chunks(
+            text=page.text,
+            chunk_size=chunk_size,
+            overlap=overlap,
+        )
 
         for idx, chunk_text in enumerate(page_chunks):
             chunk = TextChunk(
@@ -48,3 +52,24 @@ def chunk_pages(
             all_chunks.append(chunk)
 
     return all_chunks
+
+
+def preview_chunks(chunks: List[TextChunk], preview_chars: int = 300) -> None:
+    print(f"Total chunks: {len(chunks)}")
+    for chunk in chunks[:5]:
+        print("=" * 80)
+        print(f"Chunk ID: {chunk.chunk_id}")
+        print(f"Source: {chunk.source_file}")
+        print(f"Page: {chunk.page_number}")
+        print(chunk.text[:preview_chars])
+        print()
+
+
+if __name__ == "__main__":
+    from src.pdf_parser import parse_pdf
+
+    sample_path = "data/raw/sample.pdf"
+    pages = parse_pdf(sample_path)
+    chunks = chunk_pages(pages)
+
+    preview_chunks(chunks)
