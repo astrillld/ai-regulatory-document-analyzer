@@ -1,27 +1,58 @@
-from sentence_transformers import SentenceTransformer
-import faiss
+from typing import List
+
 import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+from src.models import TextChunk
+from src.config import EMBEDDING_MODEL_NAME
 
-chunks = [
-    "first_metrics",
-    "second_metrics",
-    "third_metrics"
-]
 
-chunk_embeddings = model.encode(chunks)
-chunk_embeddings = np.array(chunk_embeddings).astype("float32")
+# === 1. MODEL ===
+def load_embedding_model() -> SentenceTransformer:
+    return SentenceTransformer(EMBEDDING_MODEL_NAME)
 
-index = faiss.IndexFlatL2(chunk_embeddings.shape[1])
-index.add(chunk_embeddings)
 
-query = "good project"  
+# === 2. EMBEDDINGS ===
+def embed_chunks(
+    chunks: List[TextChunk],
+    model: SentenceTransformer
+) -> np.ndarray:
+    texts = [chunk.text for chunk in chunks]
+    embeddings = model.encode(texts)
+    return np.array(embeddings).astype("float32")
 
-query_embedding = model.encode([query])
-query_embedding = np.array(query_embedding).astype("float32")
 
-distances, indices = index.search(query_embedding, k=2)
+# === 3. INDEX ===
+def build_faiss_index(embeddings: np.ndarray) -> faiss.IndexFlatL2:
+    dim = embeddings.shape[1]
+    index = faiss.IndexFlatL2(dim)
+    index.add(embeddings)
+    return index
 
-for i in range(len(indices[0])):
-    print(f"Chunk {indices[0][i]}: {chunks[indices[0][i]]} (Distance: {distances[0][i]})")
+
+# === 4. SEARCH ===
+def search_chunks(
+    query: str,
+    chunks: List[TextChunk],
+    index: faiss.IndexFlatL2,
+    model: SentenceTransformer,
+    top_k: int = 3
+):
+    query_embedding = model.encode([query])
+    query_embedding = np.array(query_embedding).astype("float32")
+
+    distances, indices = index.search(query_embedding, top_k)
+
+    results = []
+
+    for rank, idx in enumerate(indices[0]):
+        chunk = chunks[idx]
+        results.append({
+            "chunk_id": chunk.chunk_id,
+            "page": chunk.page_number,
+            "score": float(distances[0][rank]),
+            "text": chunk.text[:300]
+        })
+
+    return results
